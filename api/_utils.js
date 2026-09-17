@@ -1,4 +1,9 @@
-import { kv } from '@vercel/kv';
+import { createClient } from '@vercel/kv';
+
+const kv = createClient({
+  url: process.env.kv_KV_REST_API_URL || process.env.KV_REST_API_URL,
+  token: process.env.kv_KV_REST_API_TOKEN || process.env.KV_REST_API_TOKEN,
+});
 
 export const NAME_MAP = {
   '1000':'幻想屋','1001':'四季','1002':'绿野','1003':'星露','1004':'彩虹',
