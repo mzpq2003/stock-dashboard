@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>虚拟股票共享看板</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    background: #0a0e1a;
+    color: #e0e6f0;
+    min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg, #0d1326 0%, #141b30 100%);
+    border-bottom: 1px solid #1e2a45;
+    padding: 18px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .logo {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 18px; color: #fff;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  .header .subtitle { font-size: 12px; color: #6b7a99; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .update-time { font-size: 13px; color: #8b98b5; }
+  .update-time span { color: #4ade80; font-weight: 600; }
+  .btn {
+    padding: 8px 20px; border: 1px solid #3b82f6;
+    background: rgba(59,130,246,0.15); color: #60a5fa;
+    border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+    font-family: inherit; transition: all 0.2s;
+  }
+  .btn:hover { background: rgba(59,130,246,0.3); color: #93c5fd; }
+  .btn.active { background: #3b82f6; color: #fff; }
+  .btn-buy { border-color: #ef4444; background: rgba(239,68,68,0.15); color: #f87171; }
+  .btn-buy:hover { background: rgba(239,68,68,0.3); color: #fca5a5; }
+  .btn-sell { border-color: #22c55e; background: rgba(34,197,94,0.15); color: #4ade80; }
+  .btn-sell:hover { background: rgba(34,197,94,0.3); color: #86efac; }
+  .btn-reset { border-color: #6b7a99; background: rgba(107,122,153,0.15); color: #94a3b8; }
+  .btn-reset:hover { background: rgba(107,122,153,0.3); color: #cbd5e1; }
+  .countdown { font-size: 13px; color: #f59e0b; min-width: 60px; }
+  .threshold-input {
+    width: 56px; padding: 7px 8px; background: #0a0e1a;
+    border: 1px solid #2a3a5c; border-radius: 6px; color: #e0e6f0;
+    font-size: 13px; text-align: center; outline: none; font-family: inherit;
+  }
+  .threshold-input:focus { border-color: #3b82f6; }
+  .account-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 32px; background: #0d1326; border-bottom: 1px solid #1e2a45;
+    flex-wrap: wrap; gap: 16px;
+  }
+  .account-left { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+  .account-item { display: flex; flex-direction: column; gap: 2px; }
+  .account-label { font-size: 11px; color: #6b7a99; }
+  .account-value { font-size: 18px; font-weight: 700; }
+  .cash { color: #4ade80; }
+  .market { color: #60a5fa; }
+  .total { color: #fbbf24; }
+  .profit-pos { color: #ef4444; }
+  .profit-neg { color: #22c55e; }
+  .account-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .main { padding: 20px 32px; }
+  .panel {
+    background: #0d1326; border: 1px solid #1e2a45; border-radius: 10px; overflow: hidden;
+  }
+  .panel-header {
+    padding: 16px 20px; border-bottom: 1px solid #1e2a45;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .panel-title { font-size: 15px; font-weight: 700; color: #e0e6f0; }
+  .panel-title::before {
+    content: ''; display: inline-block; width: 3px; height: 14px;
+    background: #3b82f6; border-radius: 2px; margin-right: 8px; vertical-align: middle;
+  }
+  .search-box {
+    padding: 7px 12px; background: #0a0e1a; border: 1px solid #2a3a5c;
+    border-radius: 6px; color: #e0e6f0; font-size: 13px; outline: none;
+    font-family: inherit; width: 160px;
+  }
+  .search-box:focus { border-color: #3b82f6; }
+  .table-wrap { overflow-x: auto; }
+  .hold-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .hold-table th {
+    padding: 12px 16px; text-align: left; font-size: 12px; color: #6b7a99;
+    font-weight: 600; border-bottom: 1px solid #1e2a45; cursor: pointer;
+    user-select: none; white-space: nowrap;
+  }
+  .hold-table th:hover { color: #94a3b8; }
+  .hold-table td {
+    padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #151d30;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hold-table tr:hover { background: rgba(59,130,246,0.05); }
+  .stock-name { font-weight: 600; color: #e0e6f0; }
+  .price-up { color: #ef4444; }
+  .price-down { color: #22c55e; }
+  .price-flat { color: #6b7a99; }
+  .hold-tag {
+    display: inline-block; padding: 2px 8px; background: rgba(59,130,246,0.15);
+    color: #60a5fa; border-radius: 4px; font-size: 11px; margin-left: 6px;
+  }
+  .loading { text-align: center; padding: 40px; color: #6b7a99; }
+  .spinner {
+    display: inline-block; width: 20px; height: 20px;
+    border: 2px solid #1e2a45; border-top-color: #3b82f6;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    margin-right: 8px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .footer { text-align: center; padding: 20px; font-size: 12px; color: #4a5568; }
+  .toast {
+    position: fixed; top: 20px; left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: #1e2a45; color: #e0e6f0; padding: 12px 24px;
+    border-radius: 8px; font-size: 14px; z-index: 1000;
+    transition: transform 0.3s; border: 1px solid #3b82f6;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  @media (max-width: 768px) {
+    .header, .account-bar, .main { padding: 12px 16px; }
+    .header h1 { font-size: 16px; }
+    .account-value { font-size: 15px; }
+    .hold-table th, .hold-table td { padding: 8px 10px; font-size: 12px; }
+    .search-box { width: 120px; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <div class="logo">股</div>
+    <div>
+      <h1>虚拟股票共享看板</h1>
+      <div class="subtitle">多人共享 · 实时行情 · 模拟交易</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="update-time">更新: <span id="updateTime">--</span></div>
+    <div class="countdown" id="countdown">--</div>
+    <button class="btn" id="refreshBtn" onclick="toggleAutoRefresh()">自动刷新: 开</button>
+    <button class="btn" id="feishuBtn" onclick="toggleFeishuAlert()">飞书提醒: 开</button>
+    <input type="number" class="threshold-input" id="thresholdInput" value="10" min="0.5" max="100" step="0.5" onchange="updateThreshold()">
+    <span style="font-size:12px;color:#6b7a99;">%阈值</span>
+  </div>
+</div>
+<div class="account-bar">
+  <div class="account-left">
+    <div class="account-item"><span class="account-label">可用资金</span><span class="account-value cash" id="cashValue">¥0.00</span></div>
+    <div class="account-item"><span class="account-label">持仓市值</span><span class="account-value market" id="marketValue">¥0.00</span></div>
+    <div class="account-item"><span class="account-label">总资产</span><span class="account-value total" id="totalValue">¥0.00</span></div>
+    <div class="account-item"><span class="account-label">总盈亏</span><span class="account-value" id="totalProfit">¥0.00</span></div>
+  </div>
+  <div class="account-actions">
+    <button class="btn btn-buy" onclick="oneClickBuy()">一键买入(全仓)</button>
+    <button class="btn btn-sell" onclick="oneClickSell()">一键卖出</button>
+    <button class="btn btn-reset" onclick="resetAccount()">重置账户</button>
+  </div>
+</div>
+<div class="main">
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">行情与持仓</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:#6b7a99;" id="holdCount">持仓 0 只</span>
+        <input type="text" class="search-box" id="searchBox" placeholder="搜索股票/行业..." oninput="renderTable()">
+        <input type="number" class="search-box" id="priceFilter" placeholder="过滤价格低于..." style="width:140px;" oninput="renderTable()">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="hold-table">
+        <colgroup>
+          <col style="width:26%"><col style="width:14%"><col style="width:14%">
+          <col style="width:14%"><col style="width:16%"><col style="width:16%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th onclick="sortBy('name')">股票/行业</th>
+            <th onclick="sortBy('price')">当前价格</th>
+            <th onclick="sortBy('qty')">持仓数量</th>
+            <th onclick="sortBy('buyPrice')">买入价</th>
+            <th onclick="sortBy('marketValue')">市值</th>
+            <th onclick="sortBy('profit')">盈亏</th>
+          </tr>
+        </thead>
+        <tbody id="stockBody">
+          <tr><td colspan="6"><div class="loading"><div class="spinner"></div>加载中...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="footer">数据来源：虚拟股票接口 | 多人共享账户 | 仅供模拟演示，不构成投资建议</div>
+<div class="toast" id="toast"></div>
+<script>
+const INITIAL_CASH = 100000;
+const FEISHU_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/58895acc-675e-441e-85b1-a7fdcb46c112';
+const NAME_MAP = {
+  1000:'幻想屋',1001:'四季',1002:'绿野',1003:'星露',1004:'彩虹',
+  1005:'晨露',1006:'丰收',1007:'星辰',1008:'梦幻',1009:'花舞',
+  1010:'幻影',1011:'夏威',1012:'月光',1013:'宝石',1014:'星光',
+  1015:'慧光',1016:'星耀',1017:'晨星',1018:'弧光',1019:'冬星',
+  1020:'风铃',1021:'极光',1022:'暮光',1023:'星尘',1024:'水晶',
+  1025:'琥珀',1026:'翡翠',1027:'银河',1028:'迷雾',1029:'钻石',
+  1030:'黎明',1031:'暮色',1032:'珊瑚',
+  2001:'炼金',2002:'银行',2003:'汽车',2004:'农园',2005:'酒馆',
+  2006:'工坊',2007:'商会',2008:'畜牧',2009:'典当',2010:'公会',
+  2011:'市场',2012:'仓储',2013:'食品',2014:'餐馆',2015:'旅店',
+  2016:'渔业',2017:'医院',2018:'码头',2019:'航运',2020:'矿场',
+  2021:'机车',2022:'保险',2023:'电力',2024:'物流',2025:'地产',
+  2026:'娱乐',2027:'咖啡',2028:'烘焙',2029:'酿酒',2030:'广告',
+  2031:'安保',2032:'机械',
+  10000:'幻想屋',10001:'未知'
+};
+let stockData = [], account = { cash: INITIAL_CASH, holdings: {} };
+let sortField = 'profit', sortDesc = true, autoRefresh = true;
+let autoTimer = null, countdownTimer = null, countdown = 5;
+let feishuAlertEnabled = true, profitThreshold = 10, profitAlertTriggered = {};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+async function fetchAccount() {
+  try {
+    const resp = await fetch('/api/account');
+    if (resp.ok) { account = await resp.json(); updateAccountUI(); }
+  } catch (e) { console.warn('获取账户失败:', e); }
+}
+async function fetchStocks() {
+  try {
+    const resp = await fetch('/api/stocks');
+    const result = await resp.json();
+    if (result.success && result.data) {
+      stockData = result.data.map(s => {
+        const n1 = String(s.name1), n2 = String(s.name2);
+        return {
+          id: s.id, name1: s.name1||'', name2: s.name2||'',
+          name1_cn: NAME_MAP[n1]||n1, name2_cn: NAME_MAP[n2]||n2,
+          price: parseFloat(s.price)||0,
+          change: parseFloat(s.t1)||parseFloat(s.change)||0,
+          changeAmount: parseFloat(s.t2)||parseFloat(s.changeAmount)||0
+        };
+      });
+      document.getElementById('updateTime').textContent = new Date().toLocaleTimeString('zh-CN');
+      renderTable(); checkProfitAlert();
+    } else {
+      console.warn('行情获取失败:', result.error);
+      document.getElementById('updateTime').textContent = '行情加载失败';
+    }
+  } catch (e) {
+    console.warn('获取行情失败:', e);
+    document.getElementById('updateTime').textContent = '网络错误';
+  }
+}
+function getFilteredStocks() {
+  let list = [...stockData];
+  const search = document.getElementById('searchBox').value.trim().toLowerCase();
+  const priceFilter = parseFloat(document.getElementById('priceFilter').value);
+  if (search) list = list.filter(s => (s.name1_cn+s.name2_cn+s.name1+s.name2).toLowerCase().includes(search));
+  if (!isNaN(priceFilter) && priceFilter > 0) list = list.filter(s => s.price >= priceFilter);
+  return list;
+}
+function sortBy(field) {
+  if (sortField === field) sortDesc = !sortDesc;
+  else { sortField = field; sortDesc = true; }
+  renderTable();
+}
+function renderTable() {
+  const tbody = document.getElementById('stockBody');
+  if (stockData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div>加载中...</div></td></tr>';
+    return;
+  }
+  let list = getFilteredStocks();
+  list.sort((a, b) => {
+    let va, vb;
+    if (sortField === 'name') { va = a.name1_cn; vb = b.name1_cn; return sortDesc ? vb.localeCompare(va) : va.localeCompare(vb); }
+    if (sortField === 'price') { va = a.price; vb = b.price; }
+    else if (sortField === 'qty') { va = account.holdings[a.id]?.qty||0; vb = account.holdings[b.id]?.qty||0; }
+    else if (sortField === 'buyPrice') { va = account.holdings[a.id]?.buyPrice||0; vb = account.holdings[b.id]?.buyPrice||0; }
+    else if (sortField === 'marketValue') { va = (account.holdings[a.id]?.qty||0)*a.price; vb = (account.holdings[b.id]?.qty||0)*b.price; }
+    else if (sortField === 'profit') {
+      const ha = account.holdings[a.id], hb = account.holdings[b.id];
+      va = ha ? (a.price-ha.buyPrice)*ha.qty : -999999;
+      vb = hb ? (b.price-hb.buyPrice)*hb.qty : -999999;
+    } else { va = 0; vb = 0; }
+    return sortDesc ? vb-va : va-vb;
+  });
+  list.sort((a, b) => (account.holdings[b.id]?1:0) - (account.holdings[a.id]?1:0));
+  let html = '';
+  list.forEach(s => {
+    const hold = account.holdings[s.id];
+    const priceClass = s.change > 0 ? 'price-up' : (s.change < 0 ? 'price-down' : 'price-flat');
+    const qty = hold ? hold.qty.toFixed(4) : '-';
+    const buyPrice = hold ? hold.buyPrice.toFixed(2) : '-';
+    const marketValue = hold ? (hold.qty*s.price).toFixed(2) : '-';
+    let profitHtml = '-';
+    if (hold) {
+      const profitAmt = (s.price-hold.buyPrice)*hold.qty;
+      const profitPct = ((s.price-hold.buyPrice)/hold.buyPrice)*100;
+      const pClass = profitAmt >= 0 ? 'price-up' : 'price-down';
+      const sign = profitAmt >= 0 ? '+' : '';
+      profitHtml = '<span class="'+pClass+'">'+sign+'¥'+profitAmt.toFixed(2)+' ('+sign+profitPct.toFixed(2)+'%)</span>';
+    }
+    const holdTag = hold ? '<span class="hold-tag">持仓</span>' : '';
+    const stockName = s.name1_cn + (s.name2_cn && s.name2_cn !== '未知' ? s.name2_cn : '');
+    html += '<tr><td><div class="stock-name">'+stockName+holdTag+'</div></td>'+
+      '<td class="'+priceClass+'">¥'+s.price.toFixed(2)+'</td>'+
+      '<td>'+qty+'</td><td>'+buyPrice+'</td><td>¥'+marketValue+'</td><td>'+profitHtml+'</td></tr>';
+  });
+  tbody.innerHTML = html;
+  document.getElementById('holdCount').textContent = '持仓 '+Object.keys(account.holdings).length+' 只';
+}
+function updateAccountUI() {
+  let marketValue = 0;
+  Object.entries(account.holdings).forEach(([id, hold]) => {
+    const stock = stockData.find(s => s.id == id);
+    const price = stock ? stock.price : hold.buyPrice;
+    marketValue += hold.qty * price;
+  });
+  const total = account.cash + marketValue;
+  const profit = total - INITIAL_CASH;
+  const profitClass = profit >= 0 ? 'profit-pos' : 'profit-neg';
+  const sign = profit >= 0 ? '+' : '';
+  document.getElementById('cashValue').textContent = '¥'+account.cash.toFixed(2);
+  document.getElementById('marketValue').textContent = '¥'+marketValue.toFixed(2);
+  document.getElementById('totalValue').textContent = '¥'+total.toFixed(2);
+  const pe = document.getElementById('totalProfit');
+  pe.textContent = sign+'¥'+profit.toFixed(2);
+  pe.className = 'account-value '+profitClass;
+  renderTable();
+}
+async function oneClickBuy() {
+  if (stockData.length === 0) { showToast('行情数据未加载'); return; }
+  if (account.cash < 100) { showToast('可用资金不足'); return; }
+  const buyList = getFilteredStocks();
+  if (buyList.length === 0) { showToast('当前筛选条件下没有可买入的股票'); return; }
+  showToast('正在买入...');
+  try {
+    const resp = await fetch('/api/buy', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ stocks: buyList })
+    });
+    const result = await resp.json();
+    if (result.success) { account = result.account; updateAccountUI(); showToast(result.message); }
+    else showToast(result.message || '买入失败');
+  } catch (e) { showToast('买入失败: '+e.message); }
+}
+async function oneClickSell() {
+  if (Object.keys(account.holdings).length === 0) { showToast('暂无持仓'); return; }
+  showToast('正在卖出...');
+  try {
+    const resp = await fetch('/api/sell', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ stocks: stockData })
+    });
+    const result = await resp.json();
+    if (result.success) { account = result.account; updateAccountUI(); showToast(result.message); }
+    else showToast(result.message || '卖出失败');
+  } catch (e) { showToast('卖出失败: '+e.message); }
+}
+async function resetAccount() {
+  if (!confirm('确定要重置账户吗？所有持仓和资金将恢复初始状态。')) return;
+  try {
+    const resp = await fetch('/api/reset', { method: 'POST' });
+    const result = await resp.json();
+    if (result.success) { account = result.account; profitAlertTriggered = {}; updateAccountUI(); showToast('账户已重置'); }
+  } catch (e) { showToast('重置失败: '+e.message); }
+}
+function toggleAutoRefresh() {
+  autoRefresh = !autoRefresh;
+  const btn = document.getElementById('refreshBtn');
+  if (autoRefresh) { btn.classList.add('active'); btn.textContent = '自动刷新: 开'; startAutoRefresh(); showToast('自动刷新已开启'); }
+  else { btn.classList.remove('active'); btn.textContent = '自动刷新: 关'; stopAutoRefresh(); showToast('自动刷新已关闭'); }
+}
+function startAutoRefresh() {
+  stopAutoRefresh();
+  countdown = 5;
+  autoTimer = setInterval(async () => { await fetchStocks(); await fetchAccount(); countdown = 5; }, 5000);
+  countdownTimer = setInterval(() => { countdown--; if (countdown <= 0) countdown = 5; document.getElementById('countdown').textContent = countdown+'s'; }, 1000);
+}
+function stopAutoRefresh() {
+  if (autoTimer) clearInterval(autoTimer);
+  if (countdownTimer) clearInterval(countdownTimer);
+  document.getElementById('countdown').textContent = '--';
+}
+function toggleFeishuAlert() {
+  feishuAlertEnabled = !feishuAlertEnabled;
+  const btn = document.getElementById('feishuBtn');
+  if (feishuAlertEnabled) { btn.classList.add('active'); btn.textContent = '飞书提醒: 开 (单只'+profitThreshold+'%)'; showToast('飞书提醒已开启，单只股票盈利超'+profitThreshold+'%将推送'); }
+  else { btn.classList.remove('active'); btn.textContent = '飞书提醒: 关'; showToast('飞书提醒已关闭'); }
+}
+function updateThreshold() {
+  const input = document.getElementById('thresholdInput');
+  let val = parseFloat(input.value);
+  if (isNaN(val) || val < 0.5) val = 0.5;
+  if (val > 100) val = 100;
+  input.value = val; profitThreshold = val; profitAlertTriggered = {};
+  if (feishuAlertEnabled) document.getElementById('feishuBtn').textContent = '飞书提醒: 开 (单只'+val+'%)';
+  showToast('提醒阈值已设为 '+val+'%');
+}
+async function sendFeishuStockAlert(stock, hold, profitPct, profitAmt) {
+  const stockName = stock.name1_cn + (stock.name2_cn && stock.name2_cn !== '未知' ? stock.name2_cn : '');
+  const text = '🚀 个股盈利提醒\n\n'+stockName+' 盈利超'+profitThreshold+'%！\n\n买入价: ¥'+hold.buyPrice.toFixed(2)+'\n当前价: ¥'+stock.price.toFixed(2)+'\n持仓数量: '+hold.qty.toFixed(4)+'\n盈亏: +¥'+profitAmt.toFixed(2)+' (+'+profitPct.toFixed(2)+'%)\n\n时间: '+new Date().toLocaleString('zh-CN');
+  try {
+    await fetch(FEISHU_WEBHOOK, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ msg_type: 'text', content: { text } })
+    });
+  } catch (e) { console.warn('飞书提醒发送失败:', e); }
+}
+function checkProfitAlert() {
+  if (!feishuAlertEnabled) return;
+  Object.entries(account.holdings).forEach(([id, hold]) => {
+    const stock = stockData.find(s => s.id == id);
+    if (!stock) return;
+    const profitPct = ((stock.price-hold.buyPrice)/hold.buyPrice)*100;
+    const profitAmt = (stock.price-hold.buyPrice)*hold.qty;
+    if (profitPct >= profitThreshold && !profitAlertTriggered[id]) {
+      profitAlertTriggered[id] = true;
+      sendFeishuStockAlert(stock, hold, profitPct, profitAmt);
+      showToast(stock.name1_cn+' 盈利超'+profitThreshold+'%，已推送飞书');
+    }
+    if (profitPct < profitThreshold) profitAlertTriggered[id] = false;
+  });
+}
+async function init() {
+  document.getElementById('refreshBtn').classList.add('active');
+  document.getElementById('feishuBtn').classList.add('active');
+  document.getElementById('feishuBtn').textContent = '飞书提醒: 开 (单只'+profitThreshold+'%)';
+  await fetchAccount(); await fetchStocks(); startAutoRefresh();
+}
+init();
+</script>
+</body>
+</html>
